@@ -141,10 +141,10 @@ export default async function transform({
       cumulativeGasUsed += BigInt(ethReceipt.gasUsed);
 
       // Add all the eth data to the store.
-      store.push({ collection: "transactions", data: { tx: ethTx } });
-      store.push({ collection: "receipts", data: { receipt: ethReceipt } });
+      store.push({ collection: "transactions", data: { tx: ethTx, createdAt: new Date()} });
+      store.push({ collection: "receipts", data: { receipt: ethReceipt, createdAt: new Date() } });
       ethLogs.forEach((ethLog) => {
-        store.push({ collection: "logs", data: { log: ethLog } });
+        store.push({ collection: "logs", data: { log: ethLog, createdAt: new Date() } });
       });
     }),
   );
@@ -160,7 +160,7 @@ export default async function transform({
   });
   store.push({
     collection: "headers",
-    data: { header: ethHeader },
+    data: { header: ethHeader , createdAt: new Date()},
   });
 
   console.log(JSON.stringify(store, null, 2));
