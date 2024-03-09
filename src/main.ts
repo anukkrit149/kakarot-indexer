@@ -25,20 +25,23 @@ if (SINK_TYPE !== "console" && SINK_TYPE !== "mongo") {
   throw new Error("Invalid SINK_TYPE");
 }
 
-const sinkOptions = SINK_TYPE === "mongo"
-  ? {
-    connectionString: Deno.env.get("MONGO_CONNECTION_STRING") ??
-      "mongodb://mongo:mongo@mongo:27017",
-    database: Deno.env.get("MONGO_DATABASE_NAME") ?? "kakarot-test-db",
-    collectionNames: ["headers", "transactions", "receipts", "logs"],
-  }
-  : {};
+const sinkOptions =
+  SINK_TYPE === "mongo"
+    ? {
+        connectionString:
+          Deno.env.get("MONGO_CONNECTION_STRING") ??
+          "mongodb://mongo:mongo@mongo:27017",
+        database: Deno.env.get("MONGO_DATABASE_NAME") ?? "kakarot-test-db",
+        collectionNames: ["headers", "transactions", "receipts", "logs"],
+      }
+    : {};
 
 export const config = {
   streamUrl: STREAM_URL,
   authToken: AUTH_TOKEN,
   startingBlock: STARTING_BLOCK,
   network: "starknet",
+  finality: "DATA_STATUS_PENDING",
   filter: {
     header: { weak: false },
     // Filters are unions
@@ -108,10 +111,14 @@ export default async function transform({
           });
         })
         .filter((e) => e !== null) as JsonRpcLog[];
+      const ethLogsIndexed = ethLogs.map((log, index) => {
+        log.logIndex = index.toString();
+        return log;
+      });
 
       const ethReceipt = toEthReceipt({
         transaction: ethTx,
-        logs: ethLogs,
+        logs: ethLogsIndexed,
         event,
         cumulativeGasUsed,
         blockNumber,

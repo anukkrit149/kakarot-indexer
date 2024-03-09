@@ -1,18 +1,15 @@
 // Utils
-import { padBytes } from "../utils/hex.ts";
+import { padBigint, padBytes } from "../utils/hex.ts";
 
 // Starknet
-import {
-  bigIntToHex,
-  Transaction,
-  TransactionReceipt,
-  uint256,
-} from "../deps.ts";
+import { Transaction, TransactionReceipt, uint256 } from "../deps.ts";
 
 // Eth
 import {
   AccessListEIP2930Transaction,
   bigIntToBytes,
+  bigIntToHex,
+  Capability,
   concatBytes,
   FeeMarketEIP1559Transaction,
   intToHex,
@@ -51,7 +48,7 @@ export function toEthTx({
   receipt: TransactionReceipt;
   blockNumber: PrefixedHexString;
   blockHash: PrefixedHexString;
-}): JsonRpcTx | null {
+}): (JsonRpcTx & { yParity?: string }) | null {
   const index = receipt.transactionIndex;
 
   if (index === undefined) {
@@ -72,7 +69,14 @@ export function toEthTx({
     // TODO: Ping alert webhooks
     return null;
   }
-  return {
+  // If the transaction is a legacy, we can calculate it from the v value.
+  // v = 35 + 2 * chainId + yParity -> chainId = (v - 35) / 2
+  const chainId = isLegacyTx(transaction) &&
+      transaction.supports(Capability.EIP155ReplayProtection)
+    ? bigIntToHex((BigInt(txJSON.v) - 35n) / 2n)
+    : txJSON.chainId;
+
+  const result: JsonRpcTx & { yParity?: string } = {
     blockHash,
     blockNumber,
     from: transaction.getSenderAddress().toString(),
@@ -82,12 +86,12 @@ export function toEthTx({
     maxPriorityFeePerGas: txJSON.maxPriorityFeePerGas,
     type: intToHex(transaction.type),
     accessList: txJSON.accessList,
-    chainId: txJSON.chainId,
+    chainId,
     hash: padBytes(transaction.hash(), 32),
     input: txJSON.data!,
     nonce: txJSON.nonce!,
     to: transaction.to?.toString() ?? null,
-    transactionIndex: bigIntToHex(BigInt(index ?? 0)),
+    transactionIndex: padBigint(BigInt(index ?? 0), 32),
     value: txJSON.value!,
     v: txJSON.v,
     r: txJSON.r,
@@ -95,6 +99,15 @@ export function toEthTx({
     maxFeePerBlobGas: txJSON.maxFeePerBlobGas,
     blobVersionedHashes: txJSON.blobVersionedHashes,
   };
+  // Adding yParity for EIP-1559 and EIP-2930 transactions
+  // To fit the Ethereum format, we need to add the yParity field.
+  if (
+    isFeeMarketEIP1559TxData(transaction) ||
+    isAccessListEIP2930Tx(transaction)
+  ) {
+    result.yParity = txJSON.v;
+  }
+  return result;
 }
 
 /**

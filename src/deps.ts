@@ -1,5 +1,5 @@
 // Starknet
-export { hash, uint256 } from "https://esm.sh/starknet@5.24.3";
+export { hash, RpcProvider, uint256, Contract} from "https://esm.sh/starknet@5.24.3";
 export type {
   BlockHeader,
   Event,
@@ -11,6 +11,7 @@ export type {
 // Ethereum
 export {
   AccessListEIP2930Transaction,
+  Capability,
   FeeMarketEIP1559Transaction,
   isAccessListEIP2930Tx,
   isFeeMarketEIP1559TxData,
